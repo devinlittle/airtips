@@ -1,4 +1,4 @@
-use axum::{Json, extract::State, http::StatusCode};
+use axum::{Json, extract::State};
 use axum_extra::{
     TypedHeader,
     headers::{Authorization, authorization::Bearer},
@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 //use serde_json::Value;
 //use sqlx::PgPool;
 use time::OffsetDateTime;
-use tracing::info;
+
+use crate::routes::AppState;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 struct Claims {
@@ -43,11 +44,11 @@ mod jwt_numeric_date {
             .map_err(|_| serde::de::Error::custom("invalid Unix timestamp value"))
     }
 }
-//use serde::{Deserialize, Serialize};
 
 pub async fn fetch_songs(
     TypedHeader(Authorization(bearer)): TypedHeader<Authorization<Bearer>>,
-) -> Result<String, axum::http::StatusCode> {
+    State(state): State<AppState>,
+) -> Result<Json<Songs>, axum::http::StatusCode> {
     let jwt_secret = dotenvy::var("JWT_SECRET").unwrap();
     let validation = Validation::new(jsonwebtoken::Algorithm::HS256);
     let decoding_key = DecodingKey::from_secret(jwt_secret.as_bytes());
@@ -84,23 +85,78 @@ pub async fn fetch_songs(
     if uuid.to_string() == dotenvy::var("trin_id").unwrap()
         || uuid.to_string() == dotenvy::var("devin_id").unwrap()
     {
-        // RIGHT HERE WOULD DO A DB QUERY TO GET ALL RECENT SONGS
-        Ok("hello there".to_string())
+        let current_song_read = state.current_song.read().await;
+        Ok(Json(current_song_read.clone()))
     } else {
         Err(axum::http::StatusCode::UNAUTHORIZED)
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct PostSongsValidation {
-    token: String,
+#[derive(Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Songs {
+    pub title: String,
+    pub alternative_title: String,
+    pub artist: String,
+    pub artist_url: String,
+    pub views: u64,
+    pub image_src: String,
+    //    pub image: Image,
+    pub is_paused: bool,
+    pub song_duration: u64,
+    pub elapsed_seconds: u64,
+    pub url: String,
+    pub album: Option<String>,
+    pub video_id: String,
+    pub playlist_id: String,
+    pub media_type: String,
+    pub tags: Vec<String>,
 }
 
 pub async fn post_songs(
-    Json(req): Json<PostSongsValidation>,
+    TypedHeader(Authorization(bearer)): TypedHeader<Authorization<Bearer>>,
+    State(state): State<AppState>,
+    Json(req): Json<Songs>,
 ) -> Result<String, axum::http::StatusCode> {
-    // SIMPLE UPDATE/PUSH REQ IN SQL TO THE DATABASE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // would be made a req to when song skipped/next song
-    tracing::info!("{:?}", req.token);
-    Ok("hi".to_string())
+    let jwt_secret = dotenvy::var("JWT_SECRET").unwrap();
+    let validation = Validation::new(jsonwebtoken::Algorithm::HS256);
+    let decoding_key = DecodingKey::from_secret(jwt_secret.as_bytes());
+    let uuid = match jsonwebtoken::decode::<Claims>(bearer.token(), &decoding_key, &validation)
+        .map(|x| x.claims.sub)
+    {
+        Ok(uuid) => uuid,
+        Err(err) => {
+            let _ = match *err.kind() {
+                jsonwebtoken::errors::ErrorKind::InvalidToken => {
+                    tracing::warn!("InvalidToken");
+                    "Invalid Token"
+                }
+                jsonwebtoken::errors::ErrorKind::InvalidSignature => {
+                    tracing::warn!("InvalidSignature");
+                    "Invalid Signature"
+                }
+                jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
+                    tracing::warn!("ExpiredSignature");
+                    "Expiered Signature"
+                }
+                _ => {
+                    tracing::warn!("Something really bad happened");
+                    "Token Verifation fail"
+                }
+            };
+            return Err(axum::http::StatusCode::UNAUTHORIZED);
+        }
+    };
+
+    let uuid =
+        uuid::Uuid::parse_str(uuid.as_str()).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+
+    if uuid.to_string() == dotenvy::var("devin_id").unwrap() {
+        let mut current_song_write = state.current_song.write().await;
+        *current_song_write = req;
+        drop(current_song_write);
+        Ok("Updated Current Song".to_string())
+    } else {
+        Err(axum::http::StatusCode::UNAUTHORIZED)
+    }
 }

@@ -1,14 +1,13 @@
-use std::time::Duration;
-
 use axum::Router;
 use axum_server::tls_rustls::RustlsConfig;
-use hyper::header::{AUTHORIZATION, CONTENT_TYPE};
 use sqlx::postgres::PgPoolOptions;
+use std::time::Duration;
 use tokio::signal::{
     self,
     unix::{SignalKind, signal},
 };
-use tower_http::cors::{Any, CorsLayer};
+//use tower_http::cors::{Any, CorsLayer};
+
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
