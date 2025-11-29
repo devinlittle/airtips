@@ -1,33 +1,72 @@
+use std::fs;
+
 use futures_util::{StreamExt, stream::SplitStream};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 type WsRead = SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // TODO: CONFIG THISSSSS
-    let url = "ws://0.0.0.0:26538/api/v1/ws";
-
-    let (ws_stream, _) = connect_async(url).await?;
-    println!("Connected to {}", url);
-
-    let (_write, read) = ws_stream.split();
-    handle_messages(read).await
+#[derive(Serialize, Deserialize, Clone)]
+struct AirtipsConfig {
+    ws_server_address: String,
+    airtips_server_address: String,
+    devinlittlenet_address: String,
+    devinlittlenet_username: String,
+    devinlittlenet_password: String,
 }
 
-async fn handle_messages(mut read: WsRead) -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let config_file =
+        fs::read_to_string("./airtips_config.toml").expect("Should have a config.toml file");
+    let tomlable: AirtipsConfig = toml::from_str(config_file.as_str()).unwrap();
+
+    let token_config = tomlable.clone();
+
+    let login_payload = json!({
+        "username": token_config.devinlittlenet_username,
+        "password": token_config.devinlittlenet_password,
+    });
+
+    let devin_login = reqwest::Client::new()
+        .post(format!(
+            "{}/auth/login",
+            token_config.devinlittlenet_address
+        ))
+        .header("Content-Type", "application/json")
+        .json(&login_payload)
+        .send()
+        .await?;
+
+    let token = devin_login
+        .text()
+        .await
+        .unwrap()
+        .trim_matches('"')
+        .to_string();
+
+    let (ws_stream, _) = connect_async(tomlable.ws_server_address).await?;
+
+    let (_write, read) = ws_stream.split();
+    handle_messages(read, token).await
+}
+
+async fn handle_messages(
+    mut read: WsRead,
+    token: String,
+) -> Result<(), Box<dyn std::error::Error>> {
     while let Some(msg) = read.next().await {
-        process_message(msg?).await.unwrap();
+        process_message(msg?, token.clone()).await.unwrap();
     }
     Ok(())
 }
 
-async fn process_message(msg: Message) -> Result<(), Box<dyn std::error::Error>> {
+async fn process_message(msg: Message, token: String) -> Result<(), Box<dyn std::error::Error>> {
     match msg {
-        Message::Text(text) => handle_text_message(&text).await,
+        Message::Text(text) => handle_text_message(&text, token).await,
         Message::Close(_) => handle_close(),
         _ => Ok(()),
     }
@@ -89,19 +128,23 @@ pub struct Song {
     pub tags: Vec<String>,
 }
 
-async fn handle_text_message(text: &str) -> Result<(), Box<dyn std::error::Error>> {
+async fn handle_text_message(text: &str, token: String) -> Result<(), Box<dyn std::error::Error>> {
     let message: WsMessage = serde_json::from_str(text)?;
+
+    let config_file =
+        fs::read_to_string("./airtips_config.toml").expect("Should have a config.toml file");
+    let tomlable: AirtipsConfig = toml::from_str(config_file.as_str()).unwrap();
 
     match message {
         WsMessage::PlayerInfo { song, .. } => {
-            if post_song(song).await.is_ok() {
+            if post_song(song, tomlable, token).await.is_ok() {
                 println!("We updated song status!");
             } else {
                 println!("UHHOHH FAILEDD");
             }
         }
         WsMessage::VideoChanged { song, .. } => {
-            if post_song(song).await.is_ok() {
+            if post_song(song, tomlable, token).await.is_ok() {
                 println!("We updated song status!");
             } else {
                 println!("UHHOHH FAILEDD");
@@ -115,17 +158,17 @@ async fn handle_text_message(text: &str) -> Result<(), Box<dyn std::error::Error
     Ok(())
 }
 
-async fn post_song(song: Song) -> Result<(), Box<dyn std::error::Error>> {
+async fn post_song(
+    song: Song,
+    config: AirtipsConfig,
+    token: String,
+) -> Result<(), Box<dyn std::error::Error>> {
     let client = reqwest::Client::new();
-
-    // TODO: GET RID OF THIS
-    let token = "";
 
     let payload = song;
 
-    // TODO: READ URL OFF OF CONFIG
     let response = client
-        .post("http://10.0.0.139:3013/post_song")
+        .post(format!("{}/post_song", config.airtips_server_address))
         .header("Authorization", format!("Bearer {}", token))
         .json(&payload)
         .send()

@@ -27,6 +27,7 @@ jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
 tracing = "0.1.41"
 tracing-subscriber = {version = "0.3", features = ["env-filter"] }
 dotenvy = "0.15.7"
+toml = "0.9"
 
 
 [profile.release]
