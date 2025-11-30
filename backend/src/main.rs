@@ -11,6 +11,10 @@ use tokio::signal::{
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
+use crate::config::Config;
+
+mod config;
+mod middleware;
 mod routes;
 
 #[tokio::main]
@@ -36,6 +40,7 @@ async fn main() {
     let database_string = dotenvy::var("DATABASE_URL").expect("DATABASE_URL not found");
     let host_on = format!("0.0.0.0:{}", dotenvy::var("PORT").unwrap());
     let production_enviorment = dotenvy::var("PRODUCTION").is_ok();
+    let config = Config::from_env().expect("failed to load config");
 
     let pool = PgPoolOptions::new()
         .max_connections(5)
@@ -44,7 +49,7 @@ async fn main() {
         .await
         .expect("can't connect to database");
 
-    let app = Router::new().merge(routes::create_routes(pool.clone()));
+    let app = Router::new().merge(routes::create_routes(pool.clone(), config));
 
     let handle = axum_server::Handle::new();
     let shutdown_signal_handler = shutdown_signal(handle.clone());

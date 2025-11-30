@@ -8,15 +8,17 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 pub mod songs;
+use crate::config::Config;
 use songs::Songs;
 
 #[derive(Clone)]
 pub struct AppState {
     pub pool: PgPool,
     pub current_song: Arc<RwLock<Songs>>,
+    pub config: Config,
 }
 
-pub fn create_routes(pool: PgPool) -> Router {
+pub fn create_routes(pool: PgPool, config: Config) -> Router {
     let current_song_rw = Arc::new(RwLock::new(Songs {
         title: "App Started".to_string(),
         alternative_title: "Hi there".to_string(),
@@ -44,10 +46,15 @@ pub fn create_routes(pool: PgPool) -> Router {
     let app_state = AppState {
         pool,
         current_song: current_song_rw,
+        config,
     };
 
     Router::new()
-        .route("/fetch_song", get(songs::fetch_songs))
-        .route("/post_song", post(songs::post_songs))
+        .route("/fetch_current_song", get(songs::fetch_current_song))
+        .route("/post_current_song", post(songs::post_current_song))
+        .layer(axum::middleware::from_fn_with_state(
+            app_state.clone(),
+            crate::middleware::jwt::jwt_auth,
+        ))
         .with_state(app_state)
 }
