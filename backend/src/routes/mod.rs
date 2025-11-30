@@ -6,6 +6,7 @@ use axum::{
 use sqlx::PgPool;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tower_http::compression::CompressionLayer;
 
 pub mod songs;
 use crate::config::Config;
@@ -52,6 +53,7 @@ pub fn create_routes(pool: PgPool, config: Config) -> Router {
     Router::new()
         .route("/fetch_current_song", get(songs::fetch_current_song))
         .route("/post_current_song", post(songs::post_current_song))
+        .layer(CompressionLayer::new())
         .layer(axum::middleware::from_fn_with_state(
             app_state.clone(),
             crate::middleware::jwt::jwt_auth,

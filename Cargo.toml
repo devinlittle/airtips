@@ -10,7 +10,7 @@ axum-extra = "0.12.2"
 axum-server = {version = "0.7.3", features = ["tls-rustls"]}
 hyper = {version = "1.8.1"}
 hyper-tls = "0.6.0"
-tower-http = { version = "0.6.7", features = ["cors"]}
+tower-http = { version = "0.6.7", features = ["cors", "compression-full"]}
 tower = "0.5.2"
 tokio-tungstenite = "0.28.0"
 futures-util = "0.3.31"
