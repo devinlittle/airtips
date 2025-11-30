@@ -59,6 +59,7 @@ async fn handle_messages(
     token: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     while let Some(msg) = read.next().await {
+        // HACK: CLONING TOKEN FOR EVERY REQUEST = BAD IDEA
         process_message(msg?, token.clone()).await.unwrap();
     }
     Ok(())
@@ -136,20 +137,14 @@ async fn handle_text_message(text: &str, token: String) -> Result<(), Box<dyn st
     let tomlable: AirtipsConfig = toml::from_str(config_file.as_str()).unwrap();
 
     match message {
-        WsMessage::PlayerInfo { song, .. } => {
-            if post_song(song, tomlable, token).await.is_ok() {
-                println!("We updated song status!");
-            } else {
-                println!("UHHOHH FAILEDD");
-            }
-        }
-        WsMessage::VideoChanged { song, .. } => {
-            if post_song(song, tomlable, token).await.is_ok() {
-                println!("We updated song status!");
-            } else {
-                println!("UHHOHH FAILEDD");
-            }
-        }
+        WsMessage::PlayerInfo { song, .. } => match post_song(song, tomlable, token).await {
+            Ok(_) => println!("song status uppppdated!!!"),
+            Err(e) => eprintln!("Failed to post song: {}, ... do better", e),
+        },
+        WsMessage::VideoChanged { song, .. } => match post_song(song, tomlable, token).await {
+            Ok(_) => println!("song status uppppdated!!!"),
+            Err(e) => eprintln!("Failed to post song: {}, ... do better", e),
+        },
         WsMessage::PositionChanged { .. } => {}
         WsMessage::PlayerStateChanged { .. } => {}
         WsMessage::VolumeChanged { .. } => {}
