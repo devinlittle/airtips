@@ -163,10 +163,7 @@ async fn post_song(
     let payload = song;
 
     let response = client
-        .post(format!(
-            "{}/post_current_song",
-            config.airtips_server_address
-        ))
+        .post(format!("{}/post_song", config.airtips_server_address))
         .header("Authorization", format!("Bearer {}", token))
         .json(&payload)
         .send()

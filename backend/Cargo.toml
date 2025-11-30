@@ -27,7 +27,7 @@ sqlx = { workspace = true, features = [
   "time",
   "uuid"]}
 uuid.workspace = true
-time.workspace = true
+time = {workspace = true, features = ["serde-well-known", "formatting"]}
 jsonwebtoken.workspace = true
 
 tracing.workspace = true

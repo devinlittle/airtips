@@ -7,11 +7,4 @@ goals for this project
 
 
 
-LATER ONNN
-* websocket showing currently listneing to!
-
-
-so for pushing, when post request comes in, devin's token for authorization is added and if it matches devin's known uuid >>
-it gets pushed
-
-for getting same concept for but GET requets and for trin and devin's known uuid's
+CREATE previously listened to, 

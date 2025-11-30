@@ -49,6 +49,11 @@ async fn main() {
         .await
         .expect("can't connect to database");
 
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("Failed to run migrations");
+
     let app = Router::new().merge(routes::create_routes(pool.clone(), config));
 
     let handle = axum_server::Handle::new();

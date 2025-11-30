@@ -65,7 +65,7 @@ pub async fn jwt_auth(
     Ok(next.run(request).await)
 }
 
-mod jwt_numeric_date {
+pub mod jwt_numeric_date {
     //! Custom serialization of OffsetDateTime to conform with the JWT spec (RFC 7519 section 2, "Numeric Date")
     use serde::{self, Deserialize, Deserializer, Serializer};
     use time::OffsetDateTime;
