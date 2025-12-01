@@ -1,12 +1,13 @@
 use axum::Router;
 use axum_server::tls_rustls::RustlsConfig;
+use hyper::header::{ACCEPT_ENCODING, AUTHORIZATION, CONTENT_TYPE};
 use sqlx::postgres::PgPoolOptions;
 use std::time::Duration;
 use tokio::signal::{
     self,
     unix::{SignalKind, signal},
 };
-//use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::{Any, CorsLayer};
 
 use tracing::info;
 use tracing_subscriber::EnvFilter;
@@ -23,15 +24,15 @@ async fn main() {
         .with_env_filter(EnvFilter::from_default_env())
         .init();
 
-    /*    let cors = CorsLayer::new()
-    .allow_origin(Any)
-    .allow_methods([
-        axum::http::Method::GET,
-        axum::http::Method::POST,
-        axum::http::Method::DELETE,
-        axum::http::Method::OPTIONS,
-    ])
-    .allow_headers([AUTHORIZATION, CONTENT_TYPE]); */
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods([
+            axum::http::Method::GET,
+            axum::http::Method::POST,
+            axum::http::Method::DELETE,
+            axum::http::Method::OPTIONS,
+        ])
+        .allow_headers([AUTHORIZATION, CONTENT_TYPE, ACCEPT_ENCODING]);
 
     rustls::crypto::ring::default_provider()
         .install_default()
@@ -54,7 +55,7 @@ async fn main() {
         .await
         .expect("Failed to run migrations");
 
-    let app = Router::new().merge(routes::create_routes(pool.clone(), config));
+    let app = Router::new().merge(routes::create_routes(pool.clone(), config).layer(cors));
 
     let handle = axum_server::Handle::new();
     let shutdown_signal_handler = shutdown_signal(handle.clone());
