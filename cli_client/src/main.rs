@@ -33,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let devin_login = reqwest::Client::new()
         .post(format!(
-            "{}/auth/login",
+            "{}/gradegetter/auth/login",
             token_config.devinlittlenet_address
         ))
         .header("Content-Type", "application/json")
@@ -163,7 +163,10 @@ async fn post_song(
     let payload = song;
 
     let response = client
-        .post(format!("{}/post_song", config.airtips_server_address))
+        .post(format!(
+            "{}/airtips/post_song",
+            config.airtips_server_address
+        ))
         .header("Authorization", format!("Bearer {}", token))
         .json(&payload)
         .send()
