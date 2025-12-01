@@ -169,10 +169,11 @@ async fn post_song(
         .send()
         .await?;
 
-    println!("Status: {}", response.status());
-
-    let body = response.text().await?;
-    println!("Response: {}", body);
+    if !response.status().to_string().contains("200") {
+        println!("Status: {}", response.status());
+        let body = response.text().await?;
+        println!("Response: {}", body);
+    }
 
     Ok(())
 }
