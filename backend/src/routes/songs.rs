@@ -134,11 +134,9 @@ async fn fetch_recent_song_history(
             tags,
             played_at
         FROM song_history
-        WHERE user_id = $1
         ORDER BY played_at DESC
-        LIMIT $2
+        LIMIT $1
         "#,
-        user_uuid,
         limit
     )
     .fetch_all(pool)
