@@ -114,7 +114,7 @@ pub struct PaginatedSongs {
 
 async fn fetch_recent_song_history(
     pool: &PgPool,
-    user_uuid: &uuid::Uuid,
+    // user_uuid: &uuid::Uuid,
     limit: i64,
 ) -> Result<Vec<SongHistory>, sqlx::Error> {
     let rows = sqlx::query!(
@@ -170,27 +170,31 @@ pub async fn recently_played(
     State(state): State<AppState>,
     Path(page): Path<u32>,
 ) -> Result<Json<PaginatedSongs>, axum::http::StatusCode> {
-    const PAGE_SIZE: usize = 50;
+    if user.uuid == state.config.devin_id || user.uuid == state.config.trin_id {
+        const PAGE_SIZE: usize = 50;
 
-    let all_songs = fetch_recent_song_history(&state.pool, &user.uuid, 150)
-        .await
-        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+        let all_songs = fetch_recent_song_history(&state.pool, 150)
+            .await
+            .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let total_songs = all_songs.len();
-    let total_pages = (total_songs + PAGE_SIZE - 1) / PAGE_SIZE;
-    let start = (page.saturating_sub(1) as usize) * PAGE_SIZE;
-    let end = (start + PAGE_SIZE).min(total_songs);
+        let total_songs = all_songs.len();
+        let total_pages = (total_songs + PAGE_SIZE - 1) / PAGE_SIZE;
+        let start = (page.saturating_sub(1) as usize) * PAGE_SIZE;
+        let end = (start + PAGE_SIZE).min(total_songs);
 
-    if start >= total_songs {
-        return Err(axum::http::StatusCode::NOT_FOUND);
+        if start >= total_songs {
+            return Err(axum::http::StatusCode::NOT_FOUND);
+        }
+
+        let songs = all_songs[start..end].to_vec();
+
+        Ok(Json(PaginatedSongs {
+            songs,
+            page,
+            total_pages: total_pages as u32,
+            has_more: page < total_pages as u32,
+        }))
+    } else {
+        Err(axum::http::StatusCode::UNAUTHORIZED)
     }
-
-    let songs = all_songs[start..end].to_vec();
-
-    Ok(Json(PaginatedSongs {
-        songs,
-        page,
-        total_pages: total_pages as u32,
-        has_more: page < total_pages as u32,
-    }))
 }
