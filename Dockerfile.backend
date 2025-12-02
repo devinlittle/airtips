@@ -33,6 +33,6 @@ USER appuser
 COPY --from=build /bin/airtips_server /bin/
 
 ENV RUST_LOG=info
-EXPOSE 3000
+EXPOSE 3013
 
 CMD ["/bin/airtips_server"]
